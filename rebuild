@@ -72,10 +72,20 @@ if [[ ${#services[@]} -eq 0 ]]; then
 fi
 
 echo "Rebuild: ${services[*]}"
-docker-compose build "${services[@]}"
+
+if docker compose version >/dev/null 2>&1; then
+  compose_cmd=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+  compose_cmd=(docker-compose)
+else
+  echo "Erro: nem 'docker compose' nem 'docker-compose' foram encontrados no sistema."
+  exit 1
+fi
+
+"${compose_cmd[@]}" build "${services[@]}"
 
 if [[ "$run_up" == true ]]; then
-  docker-compose up -d "${services[@]}"
+  "${compose_cmd[@]}" up -d "${services[@]}"
 fi
 
 echo "Concluído: ${services[*]}"
