@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT_DIR"
+
+usage() {
+  echo "Uso: ./rebuild [-r] [app] [api]"
+  echo ""
+  echo "Sem argumentos: rebuild de app e api"
+  echo "Use -r para subir/reiniciar serviços com up -d após o build"
+  echo "Exemplos:"
+  echo "  ./rebuild"
+  echo "  ./rebuild -r"
+  echo "  ./rebuild app"
+  echo "  ./rebuild api"
+  echo "  ./rebuild app api"
+  echo "  ./rebuild -r app"
+}
+
+build_app=false
+build_api=false
+run_up=false
+
+if [[ $# -eq 0 ]]; then
+  build_app=true
+  build_api=true
+else
+  for arg in "$@"; do
+    case "$arg" in
+      -r)
+        run_up=true
+        ;;
+      app)
+        build_app=true
+        ;;
+      api)
+        build_api=true
+        ;;
+      -h|--help|help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "Argumento inválido: $arg"
+        echo ""
+        usage
+        exit 1
+        ;;
+    esac
+  done
+fi
+
+# If only flags (e.g. -r) were provided, keep default behavior (app + api).
+if [[ "$build_app" == false && "$build_api" == false ]]; then
+  build_app=true
+  build_api=true
+fi
+
+services=()
+if [[ "$build_app" == true ]]; then
+  services+=("app")
+fi
+if [[ "$build_api" == true ]]; then
+  services+=("api")
+fi
+
+if [[ ${#services[@]} -eq 0 ]]; then
+  echo "Nenhum serviço selecionado para rebuild."
+  usage
+  exit 1
+fi
+
+echo "Rebuild: ${services[*]}"
+docker-compose build "${services[@]}"
+
+if [[ "$run_up" == true ]]; then
+  docker-compose up -d "${services[@]}"
+fi
+
+echo "Concluído: ${services[*]}"

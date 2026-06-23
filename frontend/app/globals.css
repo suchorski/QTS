@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #1e3a8a; /* Azul profundo */
+  --color-primary-light: #3b82f6; /* Azul claro */
+  --color-secondary: #c0c0c0; /* Prata */
+  --color-accent: #0f172a; /* Azul escuro */
+}
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+.btn-primary {
+  @apply bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg font-medium transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-gray-300 hover:bg-gray-400 text-gray-900 px-4 py-2 rounded-lg font-medium transition-colors;
+}
+
+.card {
+  @apply bg-white rounded-lg shadow-md p-6 border border-gray-200;
+}
+
+.input-field {
+  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900;
+}
+
+@media print {
+  /* Pede ao navegador para preservar cores e fundos na impressão. */
+  .qts-print-doc,
+  .qts-print-doc * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}

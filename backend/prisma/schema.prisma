@@ -1,0 +1,348 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// Military Organization (OM)
+model MilitaryOrganization {
+  id     String  @id @default(cuid())
+  acronym String @unique
+  name   String?
+  active Boolean @default(true)
+
+  users  User[]
+  events Event[]
+  eventRequests EventRequest[]
+  qts    Qts[]
+  qtsArchives QtsArchive[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("military_organizations")
+}
+
+// Rank (posto/graduação)
+model Rank {
+  id          String  @id @default(cuid())
+  acronym     String  @unique
+  reducedName String?
+  name        String?
+  active      Boolean @default(true)
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ranks")
+}
+
+// Uniform
+model Uniform {
+  id          String  @id @default(cuid())
+  uniform     String  @unique
+  description String?
+  usages      Int     @default(0)
+  active      Boolean @default(true)
+
+  eventUniforms EventUniform[]
+  eventRequestUniforms EventRequestUniform[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("uniforms")
+}
+
+// Available roles
+model Role {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String  @unique
+  description String?
+  active      Boolean @default(true)
+
+  userRoles UserRole[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("roles")
+}
+
+// Users
+model User {
+  id           String  @id @default(cuid())
+  cpf          String  @unique
+  name         String
+  warName      String?
+  email        String? @unique
+  passwordHash String
+  saram        String? @unique
+  position     String?
+  corps        String?
+  signatureUrl    String?
+  signatureOffset Int     @default(0)
+  signatureScale  Float   @default(1)
+  active       Boolean @default(true)
+
+  militaryOrganizationId String
+  militaryOrganization   MilitaryOrganization @relation(fields: [militaryOrganizationId], references: [id])
+
+  rankId String?
+  rank   Rank?  @relation(fields: [rankId], references: [id])
+
+  userRoles   UserRole[]
+  loginAudits LoginAudit[]
+  events      Event[]
+  eventRequestsRequested EventRequest[] @relation("EventRequestRequestedBy")
+  eventRequestsReviewed EventRequest[] @relation("EventRequestReviewedBy")
+
+  qtsCreated   Qts[] @relation("QtsCreatedBy")
+  qtsValidated Qts[] @relation("QtsValidatedBy")
+  qtsApproved  Qts[] @relation("QtsApprovedBy")
+  qtsArchiveCreated   QtsArchive[] @relation("QtsArchiveCreatedBy")
+  qtsArchiveValidated QtsArchive[] @relation("QtsArchiveValidatedBy")
+  qtsArchiveApproved  QtsArchive[] @relation("QtsArchiveApprovedBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([militaryOrganizationId])
+  @@index([rankId])
+  @@index([cpf])
+  @@map("users")
+}
+
+// User-Role relation (a user can have multiple roles)
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// Event (agenda item of the QTS)
+model Event {
+  id String @id @default(cuid())
+
+  // "normal" | "administrative" | "no_expedient"
+  type String @default("normal")
+
+  // Single date occurrence (null when recurring)
+  eventDate DateTime?
+
+  // Recurrence on weekdays. CSV of JS weekday numbers (0=Dom..6=Sáb)
+  recurring Boolean @default(false)
+  weekdays  String?
+
+  startTime   String? // "09:00"
+  endTime     String? // "17:00"
+  title       String?
+  information String @db.Text
+  location    String
+  responsible String
+
+  militaryOrganizationId String
+  militaryOrganization   MilitaryOrganization @relation(fields: [militaryOrganizationId], references: [id])
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  uniforms EventUniform[]
+  eventRequest EventRequest?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([militaryOrganizationId], map: "idx_events_om")
+  @@index([eventDate])
+  @@index([militaryOrganizationId, eventDate, startTime, createdAt], map: "idx_events_om_date_time")
+  @@map("events")
+}
+
+model EventRequest {
+  id String @id @default(cuid())
+
+  status String @default("pendente")
+
+  eventDate DateTime
+  startTime String
+  endTime   String?
+  title       String
+  information String @db.Text
+  location    String
+  responsible String
+
+  militaryOrganizationId String
+  militaryOrganization   MilitaryOrganization @relation(fields: [militaryOrganizationId], references: [id])
+
+  requestedById String
+  requestedBy   User   @relation("EventRequestRequestedBy", fields: [requestedById], references: [id])
+
+  reviewedById String?
+  reviewedBy   User?     @relation("EventRequestReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+
+  eventId String? @unique
+  event   Event?  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  uniforms EventRequestUniform[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([militaryOrganizationId])
+  @@index([requestedById])
+  @@index([reviewedById])
+  @@index([status])
+  @@index([eventDate])
+  @@map("event_requests")
+}
+
+model EventRequestUniform {
+  id             String @id @default(cuid())
+  eventRequestId String
+  uniformId      String
+
+  eventRequest EventRequest @relation(fields: [eventRequestId], references: [id], onDelete: Cascade)
+  uniform      Uniform      @relation(fields: [uniformId], references: [id])
+
+  @@unique([eventRequestId, uniformId])
+  @@index([eventRequestId])
+  @@index([uniformId])
+  @@map("event_request_uniforms")
+}
+
+// Event-Uniform relation (an event can reference multiple uniforms)
+model EventUniform {
+  id        String @id @default(cuid())
+  eventId   String
+  uniformId String
+
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  uniform Uniform @relation(fields: [uniformId], references: [id])
+
+  @@unique([eventId, uniformId])
+  @@index([eventId])
+  @@index([uniformId])
+  @@map("event_uniforms")
+}
+
+model SystemSetting {
+  settingKey String   @id @map("setting_key")
+  value      String?  @db.Text
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// QTS (Quadro de Trabalho Semanal) — generated weekly work board
+model Qts {
+  id String @id @default(cuid())
+
+  startDate DateTime
+  endDate   DateTime
+
+  // "minuta" | "validado" | "aprovado"
+  status String @default("minuta")
+
+  // Frozen JSON snapshot of the generated board (header + days + items)
+  content String @db.Text
+
+  militaryOrganizationId String
+  militaryOrganization   MilitaryOrganization @relation(fields: [militaryOrganizationId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("QtsCreatedBy", fields: [createdById], references: [id])
+
+  validatedById String?
+  validatedBy   User?     @relation("QtsValidatedBy", fields: [validatedById], references: [id])
+  validatedAt   DateTime?
+
+  approvedById String?
+  approvedBy   User?     @relation("QtsApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([militaryOrganizationId])
+  @@index([status])
+  @@index([militaryOrganizationId, startDate])
+  @@index([createdAt])
+  @@index([approvedAt])
+  @@index([militaryOrganizationId, approvedAt])
+  @@index([status, createdAt])
+  @@index([militaryOrganizationId, status, startDate, endDate])
+  @@map("qts")
+}
+
+model QtsArchive {
+  id String @id @default(cuid())
+
+  startDate DateTime
+  endDate   DateTime
+
+  status String @default("aprovado")
+
+  content String @db.Text
+
+  militaryOrganizationId String
+  militaryOrganization   MilitaryOrganization @relation(fields: [militaryOrganizationId], references: [id])
+
+  createdById String
+  createdBy   User @relation("QtsArchiveCreatedBy", fields: [createdById], references: [id])
+
+  validatedById String?
+  validatedBy   User?     @relation("QtsArchiveValidatedBy", fields: [validatedById], references: [id])
+  validatedAt   DateTime?
+
+  approvedById String?
+  approvedBy   User?     @relation("QtsArchiveApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  archivePlacedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([militaryOrganizationId])
+  @@index([approvedAt])
+  @@index([militaryOrganizationId, approvedAt])
+  @@index([archivePlacedAt])
+  @@map("qts_archive")
+}
+
+// Login Audit
+model LoginAudit {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  success   Boolean
+  reason    String?
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("login_audits")
+}

@@ -1,0 +1,61 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: qts-api
+    ports:
+      - "${API_BIND_IP:-0.0.0.0}:${API_PORT:-7124}:${API_PORT:-7124}"
+    environment:
+      PORT: ${API_PORT:-7124}
+      BIND_HOST: ${BIND_HOST:-0.0.0.0}
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      LDAP_URL: ${LDAP_URL}
+      LDAP_BIND_DN: ${LDAP_BIND_DN}
+      LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD}
+      LDAP_BASE_DN: ${LDAP_BASE_DN}
+      LDAP_USER_BASE_DN: ${LDAP_USER_BASE_DN}
+      LDAP_UID_ATTRIBUTE: ${LDAP_UID_ATTRIBUTE}
+      LDAP_SARAM_ATTRIBUTE: ${LDAP_SARAM_ATTRIBUTE}
+      LDAP_MAIL_ATTRIBUTE: ${LDAP_MAIL_ATTRIBUTE}
+      LDAP_NAME_ATTRIBUTE: ${LDAP_NAME_ATTRIBUTE}
+      LDAP_OM_ATTRIBUTE: ${LDAP_OM_ATTRIBUTE}
+      LDAP_RANK_ATTRIBUTE: ${LDAP_RANK_ATTRIBUTE}
+      LDAP_WARNAME_ATTRIBUTE: ${LDAP_WARNAME_ATTRIBUTE}
+      LDAP_TIMEOUT_MS: ${LDAP_TIMEOUT_MS}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      TEST_MODE: ${TEST_MODE}
+    volumes:
+      - ./data/uploads/system:/app/public/system
+      - ./data/uploads/oms:/app/public/oms
+      - ./data/uploads/signatures:/app/public/signatures
+    networks:
+      - qts-network
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    container_name: qts-app
+    ports:
+      - "${APP_PORT:-7123}:${APP_PORT:-7123}"
+    environment:
+      PORT: ${APP_PORT:-7123}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+    depends_on:
+      - api
+    networks:
+      - qts-network
+    restart: unless-stopped
+
+networks:
+  qts-network:
+    driver: bridge
