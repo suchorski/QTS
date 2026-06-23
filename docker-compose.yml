@@ -28,6 +28,7 @@ services:
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
       FRONTEND_URL: ${FRONTEND_URL}
       TEST_MODE: ${TEST_MODE}
+      INITIAL_USER_CPF: ${INITIAL_USER_CPF}
     volumes:
       - ./data/uploads/system:/app/public/system
       - ./data/uploads/oms:/app/public/oms
