@@ -22,6 +22,7 @@ import {
 } from "../lib/api";
 import { buildUniformSortKey } from "../lib/uniformSort";
 import Sidebar from "../components/Sidebar";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Todos" },
@@ -89,6 +90,10 @@ export default function SolicitacoesPage() {
   const [salvando, setSalvando] = useState(false);
   const [modalAberto, setModalAberto] = useState(false);
   const [modalVisivel, setModalVisivel] = useState(false);
+  const [modalExclusaoAberto, setModalExclusaoAberto] = useState(false);
+  const [modalExclusaoVisivel, setModalExclusaoVisivel] = useState(false);
+  const [solicitacaoParaExcluir, setSolicitacaoParaExcluir] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   const [lista, setLista] = useState([]);
   const [pagina, setPagina] = useState(1);
@@ -102,6 +107,7 @@ export default function SolicitacoesPage() {
   const [sucesso, setSucesso] = useState("");
   const loadMoreRef = useRef(null);
   const modalCloseTimerRef = useRef(null);
+  const modalExclusaoCloseTimerRef = useRef(null);
 
   const isEditor = useMemo(
     () => usuario?.roles?.some((r) => r.code === "editor") || false,
@@ -180,6 +186,9 @@ export default function SolicitacoesPage() {
       if (modalCloseTimerRef.current) {
         clearTimeout(modalCloseTimerRef.current);
       }
+      if (modalExclusaoCloseTimerRef.current) {
+        clearTimeout(modalExclusaoCloseTimerRef.current);
+      }
     };
   }, [router]);
 
@@ -253,15 +262,20 @@ export default function SolicitacoesPage() {
     }
   };
 
-  const handleExcluir = async (id) => {
+  const handleExcluir = async () => {
+    if (!solicitacaoParaExcluir) return;
     setErro("");
     setSucesso("");
+    setExcluindo(true);
     try {
-      await deleteEventRequest(id);
-      setLista((atual) => atual.filter((item) => item.id !== id));
+      await deleteEventRequest(solicitacaoParaExcluir.id);
+      setLista((atual) => atual.filter((item) => item.id !== solicitacaoParaExcluir.id));
       setSucesso("Solicitação removida com sucesso");
+      fecharModalExclusao(true);
     } catch (errorDelete) {
       setErro(errorDelete.message || "Erro ao excluir solicitação");
+    } finally {
+      setExcluindo(false);
     }
   };
 
@@ -280,6 +294,26 @@ export default function SolicitacoesPage() {
     modalCloseTimerRef.current = setTimeout(() => {
       setModalAberto(false);
       modalCloseTimerRef.current = null;
+    }, 200);
+  };
+
+  const abrirModalExclusao = (item) => {
+    if (modalExclusaoCloseTimerRef.current) {
+      clearTimeout(modalExclusaoCloseTimerRef.current);
+      modalExclusaoCloseTimerRef.current = null;
+    }
+    setSolicitacaoParaExcluir(item);
+    setModalExclusaoAberto(true);
+    requestAnimationFrame(() => setModalExclusaoVisivel(true));
+  };
+
+  const fecharModalExclusao = (forcar = false) => {
+    if (excluindo && !forcar) return;
+    setModalExclusaoVisivel(false);
+    modalExclusaoCloseTimerRef.current = setTimeout(() => {
+      setModalExclusaoAberto(false);
+      setSolicitacaoParaExcluir(null);
+      modalExclusaoCloseTimerRef.current = null;
     }, 200);
   };
 
@@ -425,7 +459,7 @@ export default function SolicitacoesPage() {
                                 Aceitar
                               </button>
                             )}
-                            {canReviewRequests && item.status !== "negado" && (
+                            {canReviewRequests && item.status === "pendente" && (
                               <button
                                 type="button"
                                 onClick={() => handleAtualizarStatus(item.id, "negado")}
@@ -435,7 +469,7 @@ export default function SolicitacoesPage() {
                                 Negar
                               </button>
                             )}
-                            {canReviewRequests && item.status !== "pendente" && (
+                            {canReviewRequests && item.status === "negado" && (
                               <button
                                 type="button"
                                 onClick={() => handleAtualizarStatus(item.id, "pendente")}
@@ -448,7 +482,7 @@ export default function SolicitacoesPage() {
                             {podeExcluir && (
                               <button
                                 type="button"
-                                onClick={() => handleExcluir(item.id)}
+                                onClick={() => abrirModalExclusao(item)}
                                 className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-gray-200 text-gray-800 text-sm hover:bg-gray-300"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -646,6 +680,21 @@ export default function SolicitacoesPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteModal
+        aberto={modalExclusaoAberto}
+        visivel={modalExclusaoVisivel}
+        titulo="Excluir solicitação"
+        descricao={
+          solicitacaoParaExcluir
+            ? `Tem certeza que deseja excluir a solicitação \"${solicitacaoParaExcluir.title}\"?`
+            : "Tem certeza que deseja excluir esta solicitação?"
+        }
+        confirmarTexto="Excluir solicitação"
+        confirmando={excluindo}
+        onCancelar={() => fecharModalExclusao()}
+        onConfirmar={handleExcluir}
+      />
     </div>
   );
 }
