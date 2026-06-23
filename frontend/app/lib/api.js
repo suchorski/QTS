@@ -224,6 +224,13 @@ export async function getUserFieldOptions() {
   return fetcher(`${API_BASE}/users/field-options`);
 }
 
+export async function importUserByCpf(cpf) {
+  return fetcher(`${API_BASE}/users/import-by-cpf`, {
+    method: "POST",
+    body: JSON.stringify({ cpf }),
+  });
+}
+
 export async function updateUserFieldOptions(data) {
   return fetcher(`${API_BASE}/users/field-options`, {
     method: "PUT",

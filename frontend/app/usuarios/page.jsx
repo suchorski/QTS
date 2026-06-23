@@ -15,6 +15,7 @@ import {
   Trash2,
   RefreshCcw,
   Save,
+  UserPlus,
 } from "lucide-react";
 import {
   getMe,
@@ -25,6 +26,7 @@ import {
   uploadUserSignature,
   deleteUserSignature,
   updateUserSignaturePosition,
+  importUserByCpf,
 } from "../lib/api";
 import { useToast } from "../hooks/useToast";
 import Sidebar from "../components/Sidebar";
@@ -93,6 +95,14 @@ export default function UsuariosPage() {
   const [positionOptions, setPositionOptions] = useState([]);
   const [corpsOptions, setCorpsOptions] = useState([]);
 
+  // Modal importar por CPF
+  const [importModalVisivel, setImportModalVisivel] = useState(false);
+  const [importModalAberto, setImportModalAberto] = useState(false);
+  const [importCpf, setImportCpf] = useState("");
+  const [importando, setImportando] = useState(false);
+  const [erroImport, setErroImport] = useState("");
+  const importCloseTimerRef = useRef(null);
+
   const ehAdminGlobal = usuario?.roles?.some((r) => r.code === "admin_global");
   const ehAdminLocal = usuario?.roles?.some((r) => r.code === "admin_local");
   const temAcesso = ehAdminGlobal || ehAdminLocal;
@@ -122,6 +132,9 @@ export default function UsuariosPage() {
       }
       if (assinaturaCloseTimerRef.current) {
         clearTimeout(assinaturaCloseTimerRef.current);
+      }
+      if (importCloseTimerRef.current) {
+        clearTimeout(importCloseTimerRef.current);
       }
     };
   }, [router]);
@@ -187,6 +200,51 @@ export default function UsuariosPage() {
     if (!temAcesso) return;
     carregarUsuarios(pagina, filtroDebounced, omFiltroDebounced);
   }, [temAcesso, pagina, filtroDebounced, omFiltroDebounced, carregarUsuarios]);
+
+  const abrirImport = () => {
+    if (importCloseTimerRef.current) {
+      clearTimeout(importCloseTimerRef.current);
+      importCloseTimerRef.current = null;
+    }
+    setImportCpf("");
+    setErroImport("");
+    setImportModalVisivel(true);
+    requestAnimationFrame(() => setImportModalAberto(true));
+  };
+
+  const fecharImport = () => {
+    setImportModalAberto(false);
+    importCloseTimerRef.current = setTimeout(() => {
+      setImportModalVisivel(false);
+      setImportCpf("");
+      setErroImport("");
+      importCloseTimerRef.current = null;
+    }, 200);
+  };
+
+  const confirmarImport = async (e) => {
+    e.preventDefault();
+    setImportando(true);
+    setErroImport("");
+    try {
+      const usuarioImportado = await importUserByCpf(importCpf);
+      setUsuarios((lista) => {
+        const existe = lista.some((u) => u.id === usuarioImportado.id);
+        if (existe) {
+          return lista.map((u) => (u.id === usuarioImportado.id ? usuarioImportado : u));
+        }
+        return [usuarioImportado, ...lista];
+      });
+      showSucesso(
+        `Usuário ${usuarioImportado.warName || usuarioImportado.name} importado com sucesso`
+      );
+      fecharImport();
+    } catch (error) {
+      setErroImport(error.message || "Erro ao importar usuário");
+    } finally {
+      setImportando(false);
+    }
+  };
 
   const abrirEdicao = (alvo) => {
     if (modalCloseTimerRef.current) {
@@ -478,15 +536,25 @@ export default function UsuariosPage() {
             </div>
           ) : (
             <>
-              <div className="mb-6">
-                <h1 className="text-2xl font-bold text-blue-900">
-                  Gerenciar Usuários
-                </h1>
-                <p className="text-sm text-gray-600">
-                  {ehAdminGlobal
-                    ? "Todos os usuários do sistema"
-                    : "Usuários da sua OM"}
-                </p>
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-blue-900">
+                    Gerenciar Usuários
+                  </h1>
+                  <p className="text-sm text-gray-600">
+                    {ehAdminGlobal
+                      ? "Todos os usuários do sistema"
+                      : "Usuários da sua OM"}
+                  </p>
+                </div>
+                <button
+                  onClick={abrirImport}
+                  className="flex shrink-0 items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-800"
+                  title="Importar usuário pelo CPF (somente da própria OM)"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Importar por CPF
+                </button>
               </div>
 
               {erro && (
@@ -651,6 +719,84 @@ export default function UsuariosPage() {
           )}
         </main>
       </div>
+
+      {/* Modal importar por CPF */}
+      {importModalVisivel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ${
+              importModalAberto ? "opacity-100" : "opacity-0"
+            }`}
+            onClick={fecharImport}
+          />
+          <div
+            className={`relative z-10 w-full max-w-sm rounded-lg bg-white p-6 shadow-xl transition-all duration-200 ${
+              importModalAberto ? "opacity-100 scale-100" : "opacity-0 scale-95"
+            }`}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-blue-900">Importar Usuário</h2>
+              <button
+                onClick={fecharImport}
+                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="mb-4 text-sm text-gray-600">
+              Informe o CPF do militar. Seus dados serão importados do LDAP. O usuário
+              deve pertencer à <strong>sua OM</strong>.
+            </p>
+
+            {erroImport && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {erroImport}
+              </div>
+            )}
+
+            <form onSubmit={confirmarImport} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  CPF
+                </label>
+                <input
+                  type="text"
+                  value={importCpf}
+                  onChange={(e) => setImportCpf(e.target.value)}
+                  placeholder="000.000.000-00"
+                  className="input-field"
+                  autoFocus
+                  disabled={importando}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={fecharImport}
+                  className="btn-secondary"
+                  disabled={importando}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary flex items-center gap-2"
+                  disabled={importando || !importCpf.trim()}
+                >
+                  {importando ? (
+                    <RefreshCcw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  {importando ? "Importando..." : "Importar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal de edição de perfis */}
       {modalUsuario && (

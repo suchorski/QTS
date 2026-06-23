@@ -1458,6 +1458,112 @@ app.put("/users/field-options", verificarToken, exigirAdminLocalOuGlobal, async 
   res.json({ positions, corps });
 });
 
+// Importar usuário pelo CPF via LDAP (admin local ou global, somente da própria OM)
+app.post("/users/import-by-cpf", verificarToken, exigirAdminLocalOuGlobal, async (req, res) => {
+  const { cpf } = req.body;
+
+  if (!cpf) {
+    throw new ValidationError("CPF é obrigatório");
+  }
+
+  const cpfLimpo = String(cpf).replace(/\D/g, "");
+  if (!validarCPF(cpfLimpo)) {
+    throw new ValidationError("CPF inválido");
+  }
+
+  // Determinar a OM do admin solicitante
+  const adminOmId = await getCurrentUserOmId(req.user.userId);
+  if (!adminOmId) {
+    return res.status(403).json({ error: "Administrador sem OM vinculada" });
+  }
+
+  const adminOm = await prisma.militaryOrganization.findUnique({
+    where: { id: adminOmId },
+    select: { acronym: true },
+  });
+
+  // Buscar no LDAP
+  const ldapUser = await buscarNoLDAP(cpfLimpo);
+  if (!ldapUser || !ldapUser.dn) {
+    throw new ValidationError("CPF não encontrado no LDAP");
+  }
+
+  // Verificar se a OM do usuário encontrado é a mesma do admin
+  const omLdapAcronym = String(ldapUser.om || "").trim();
+  const omAdminAcronym = String(adminOm?.acronym || "").trim();
+  if (!omLdapAcronym || omLdapAcronym !== omAdminAcronym) {
+    return res.status(403).json({
+      error: `O militar pertence à OM "${omLdapAcronym || "desconhecida"}", não à sua OM (${omAdminAcronym}). Somente usuários da própria OM podem ser importados.`,
+    });
+  }
+
+  const om = await upsertOmPorSigla(ldapUser.om);
+  const rank = await upsertRankByAcronym(ldapUser.rank);
+
+  let user = await prisma.user.findUnique({
+    where: { cpf: cpfLimpo },
+    include: {
+      militaryOrganization: true,
+      rank: true,
+      userRoles: { include: { role: true } },
+    },
+  });
+
+  const userDataFromLDAP = buildUserDataFromLDAP(
+    ldapUser,
+    om.id,
+    rank?.id || null,
+    user?.name || cpfLimpo
+  );
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        cpf: cpfLimpo,
+        ...userDataFromLDAP,
+        passwordHash: "",
+      },
+      include: {
+        militaryOrganization: true,
+        rank: true,
+        userRoles: { include: { role: true } },
+      },
+    });
+  } else {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: userDataFromLDAP,
+      include: {
+        militaryOrganization: true,
+        rank: true,
+        userRoles: { include: { role: true } },
+      },
+    });
+  }
+
+  res.json({
+    id: user.id,
+    cpf: user.cpf,
+    name: user.name,
+    warName: user.warName,
+    email: user.email,
+    rank: user.rank,
+    saram: user.saram,
+    position: user.position,
+    corps: user.corps,
+    signatureUrl: user.signatureUrl,
+    signatureOffset: user.signatureOffset,
+    signatureScale: user.signatureScale ?? SIGNATURE_SCALE_DEFAULT,
+    militaryOrganization: user.militaryOrganization,
+    roles: user.userRoles.map((ur) => ({
+      id: ur.role.id,
+      code: ur.role.code,
+      name: ur.role.name,
+    })),
+    updatedAt: user.updatedAt,
+  });
+});
+
 app.get("/users/:id", verificarToken, async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.params.id },
