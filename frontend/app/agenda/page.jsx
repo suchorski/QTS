@@ -83,12 +83,22 @@ function rotuloTipo(type) {
 
 function formatarData(valorIso) {
   if (!valorIso) return "";
-  const data = new Date(valorIso);
+  const texto = String(valorIso);
+
+  // Para datas-only (AAAA-MM-DD ou AAAA-MM-DDTHH:mm...), evita deslocamento por fuso.
+  const matchData = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (matchData) {
+    const [, ano, mes, dia] = matchData;
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  const data = new Date(texto);
   if (Number.isNaN(data.getTime())) return "";
   return data.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 

@@ -59,12 +59,22 @@ function ordenarUniformes(lista) {
 
 function formatarData(iso) {
   if (!iso) return "";
-  const date = new Date(iso);
+  const texto = String(iso);
+
+  // Para datas-only (AAAA-MM-DD ou AAAA-MM-DDTHH:mm...), evita deslocamento por fuso.
+  const matchData = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (matchData) {
+    const [, ano, mes, dia] = matchData;
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  const date = new Date(texto);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 
