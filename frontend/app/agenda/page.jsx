@@ -593,7 +593,6 @@ export default function AgendaPage() {
   const confirmarExclusao = async () => {
     if (!confirmacao.evento) return;
     setErro("");
-    setSucesso("");
     setExcluindoId(confirmacao.evento.id);
     try {
       await deleteEvent(confirmacao.evento.id);
