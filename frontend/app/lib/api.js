@@ -279,39 +279,6 @@ export async function deleteRank(id) {
   });
 }
 
-export async function getUniforms(search = "") {
-  const params = new URLSearchParams({
-    ...(search && { search }),
-  });
-
-  const query = params.toString();
-  return fetcher(`${API_BASE}/uniforms${query ? `?${query}` : ""}`);
-}
-
-export async function createUniform(data) {
-  return fetcher(`${API_BASE}/uniforms`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateUniform(id, data) {
-  return fetcher(`${API_BASE}/uniforms/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteUniform(id) {
-  return fetcher(`${API_BASE}/uniforms/${id}`, {
-    method: "DELETE",
-  });
-}
-
-export async function getEventUniforms() {
-  return fetcher(`${API_BASE}/events/uniforms`);
-}
-
 export async function getEvents({ search = "", page = 1, limit = 10, recurring, dateFrom, dateTo } = {}) {
   const params = new URLSearchParams({
     page,

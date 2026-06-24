@@ -58,62 +58,6 @@ async function main() {
     console.log(`✓ Rank created: ${r.acronym}`);
   }
 
-  // Criar Uniformes
-  const uniforms = [
-    { uniform: "1º", description: "Gala", usages: 0 },
-    { uniform: "2º A", description: "Rigor (branco)", usages: 0 },
-    { uniform: "2º B", description: "Passeio Completo (branco)", usages: 0 },
-    { uniform: "3º A", description: "Rigor (azul)", usages: 0 },
-    { uniform: "3º B", description: "Passeio Completo (azul)", usages: 0 },
-    { uniform: "4º A", description: "Rigor", usages: 0 },
-    { uniform: "4º B", description: "Rigor", usages: 0 },
-    { uniform: "4º C", description: "Rigor", usages: 0 },
-    { uniform: "5º A", description: "Passeio Completo", usages: 0 },
-    { uniform: "5º B", description: "Passeio Completo", usages: 0 },
-    { uniform: "6º A", description: "Passeio", usages: 0 },
-    { uniform: "6º B", description: "Serviço Administrativo", usages: 0 },
-    { uniform: "7º A", description: "Passeio", usages: 0 },
-    { uniform: "7º B", description: "Serviço Administrativo", usages: 0 },
-    { uniform: "7º C", description: "Passeio", usages: 0 },
-    { uniform: "7º D", description: "Serviço Administrativo", usages: 0 },
-    { uniform: "7º E", description: "Serviço Administrativo", usages: 0 },
-    { uniform: "8º", description: "Voo", usages: 0 },
-    { uniform: "9º A", description: "Educação Física / Atividade Desportiva", usages: 0 },
-    { uniform: "9º B", description: "Educação Física / Atividade Desportiva", usages: 0 },
-    {
-      uniform: "10º",
-      description: "Campanha, Serviço e Instrução Militar (camuflado)",
-      usages: 0,
-    },
-    { uniform: "11º A", description: "Instrução Militar", usages: 0 },
-    { uniform: "11º B", description: "Manutenção e Conservação", usages: 0 },
-    { uniform: "11º C", description: "Limpeza", usages: 0 },
-    { uniform: "12º A", description: "Refeitório", usages: 0 },
-    { uniform: "12º B", description: "Comissaria", usages: 0 },
-    { uniform: "12º C", description: "Comissaria de Bordo", usages: 0 },
-    { uniform: "12º D", description: "Subsistência", usages: 0 },
-    { uniform: "13º", description: "Saúde (hospitalar)", usages: 0 },
-    { uniform: "14º A", description: "Hotelaria", usages: 0 },
-    { uniform: "14º B", description: "Condução de Viaturas", usages: 0 },
-    { uniform: "14º C", description: "Barbearia", usages: 0 },
-    { uniform: "15º", description: "Motociclista Batedor", usages: 0 },
-    { uniform: "16º A", description: "Desfile Militar", usages: 0 },
-    { uniform: "16º B", description: "Desfile Militar", usages: 0 },
-    { uniform: "16º C", description: "Desfile Militar", usages: 0 },
-    { uniform: "17º A", description: "Guarda de Honra", usages: 0 },
-    { uniform: "17º B", description: "Guarda de Honra", usages: 0 },
-    { uniform: "17º C", description: "Guarda de Honra", usages: 0 },
-  ];
-
-  for (const item of uniforms) {
-    const u = await prisma.uniform.upsert({
-      where: { uniform: item.uniform },
-      update: {},
-      create: item,
-    });
-    console.log(`✓ Uniform created: ${u.uniform}`);
-  }
-
   // Criar Perfis (Roles)
   const roles = [
     {

@@ -1841,18 +1841,6 @@ function parseUsages(value) {
   return parsed;
 }
 
-function serializeUniform(uniform) {
-  return {
-    id: uniform.id,
-    uniform: uniform.uniform,
-    description: uniform.description,
-    usages: uniform.usages,
-    active: uniform.active,
-    createdAt: uniform.createdAt,
-    updatedAt: uniform.updatedAt,
-  };
-}
-
 app.get("/ranks", verificarToken, exigirAdminGlobal, async (req, res) => {
   const { search = "" } = req.query;
   const term = String(search).trim();
@@ -1970,95 +1958,6 @@ app.delete("/ranks/:id", verificarToken, exigirAdminGlobal, async (req, res) => 
   res.json({ success: true });
 });
 
-app.get("/uniforms", verificarToken, exigirAdminGlobal, async (req, res) => {
-  const { search = "" } = req.query;
-  const term = String(search).trim();
-
-  const where = term
-    ? {
-        OR: [
-          { uniform: { contains: term } },
-          { description: { contains: term } },
-        ],
-      }
-    : {};
-
-  const uniforms = await prisma.uniform.findMany({ where });
-
-  res.json({ data: uniforms.map(serializeUniform) });
-});
-
-app.post("/uniforms", verificarToken, exigirAdminGlobal, async (req, res) => {
-  const uniformName = String(req.body?.uniform || "").trim();
-  const description = normalizeOptionalField(req.body?.description);
-  const active = req.body?.active === undefined ? true : Boolean(req.body.active);
-
-  if (!uniformName) {
-    throw new ValidationError("O campo uniforme é obrigatório");
-  }
-
-  const existing = await prisma.uniform.findUnique({ where: { uniform: uniformName } });
-  if (existing) {
-    throw new ValidationError("Já existe um uniforme com esse nome");
-  }
-
-  const uniform = await prisma.uniform.create({
-    data: { uniform: uniformName, description, usages: 0, active },
-  });
-
-  res.status(201).json(serializeUniform(uniform));
-});
-
-app.put("/uniforms/:id", verificarToken, exigirAdminGlobal, async (req, res) => {
-  const existing = await prisma.uniform.findUnique({ where: { id: req.params.id } });
-  if (!existing) {
-    return res.status(404).json({ error: "Uniforme não encontrado" });
-  }
-
-  const data = {};
-
-  if (req.body?.uniform !== undefined) {
-    const uniformName = String(req.body.uniform).trim();
-    if (!uniformName) {
-      throw new ValidationError("O campo uniforme é obrigatório");
-    }
-    if (uniformName !== existing.uniform) {
-      const conflict = await prisma.uniform.findUnique({ where: { uniform: uniformName } });
-      if (conflict) {
-        throw new ValidationError("Já existe um uniforme com esse nome");
-      }
-    }
-    data.uniform = uniformName;
-  }
-
-  if (req.body?.description !== undefined) {
-    data.description = normalizeOptionalField(req.body.description);
-  }
-
-  if (req.body?.active !== undefined) {
-    data.active = Boolean(req.body.active);
-  }
-
-  const uniform = await prisma.uniform.update({
-    where: { id: req.params.id },
-    data,
-  });
-
-  res.json(serializeUniform(uniform));
-});
-
-app.delete("/uniforms/:id", verificarToken, exigirAdminGlobal, async (req, res) => {
-  const uniform = await prisma.uniform.findUnique({ where: { id: req.params.id } });
-
-  if (!uniform) {
-    return res.status(404).json({ error: "Uniforme não encontrado" });
-  }
-
-  await prisma.uniform.delete({ where: { id: req.params.id } });
-
-  res.json({ success: true });
-});
-
 const EVENT_TYPES = ["normal", "administrative", "no_expedient"];
 const EVENT_REQUEST_STATUSES = ["pendente", "aceito", "negado"];
 
@@ -2080,11 +1979,7 @@ function serializeEvent(event) {
     information: event.information,
     location: event.location,
     responsible: event.responsible,
-    uniforms: (event.uniforms || []).map((eu) => ({
-      id: eu.uniform.id,
-      uniform: eu.uniform.uniform,
-      description: eu.uniform.description,
-    })),
+    uniform: event.uniform,
     createdBy: event.createdBy
       ? {
           id: event.createdBy.id,
@@ -2138,11 +2033,7 @@ function serializeEventRequest(request) {
     location: request.location,
     responsible: request.responsible,
     eventId: request.eventId,
-    uniforms: (request.uniforms || []).map((item) => ({
-      id: item.uniform.id,
-      uniform: item.uniform.uniform,
-      description: item.uniform.description,
-    })),
+    uniform: request.uniform,
     requestedBy: request.requestedBy
       ? {
           id: request.requestedBy.id,
@@ -2192,23 +2083,7 @@ async function parseEventRequestPayload(body) {
   const information = normalizeRequiredField(body?.information, "Participantes");
   const location = normalizeRequiredField(body?.location, "Local");
   const responsible = normalizeRequiredField(body?.responsible, "Responsável");
-
-  const uniformIds = Array.isArray(body?.uniformIds)
-    ? [...new Set(body.uniformIds.map((id) => String(id)).filter(Boolean))]
-    : [];
-
-  if (uniformIds.length === 0) {
-    throw new ValidationError("Selecione ao menos um uniforme");
-  }
-
-  const foundUniforms = await prisma.uniform.findMany({
-    where: { id: { in: uniformIds }, active: true },
-    select: { id: true },
-  });
-
-  if (foundUniforms.length !== uniformIds.length) {
-    throw new ValidationError("Um ou mais uniformes selecionados são inválidos");
-  }
+  const uniform = normalizeRequiredField(body?.uniform, "Uniforme");
 
   return {
     eventDate,
@@ -2218,7 +2093,7 @@ async function parseEventRequestPayload(body) {
     information,
     location,
     responsible,
-    uniformIds,
+    uniform,
   };
 }
 
@@ -2229,13 +2104,6 @@ async function getCurrentUserOmId(userId) {
   });
   return current?.militaryOrganizationId || null;
 }
-
-app.get("/events/uniforms", verificarToken, async (req, res) => {
-  const uniforms = await prisma.uniform.findMany({
-    where: { active: true },
-  });
-  res.json({ data: uniforms.map(serializeUniform) });
-});
 
 app.get("/events", verificarToken, exigirAgenda, async (req, res) => {
   const omId = await getCurrentUserOmId(req.user.userId);
@@ -2284,7 +2152,6 @@ app.get("/events", verificarToken, exigirAgenda, async (req, res) => {
     prisma.event.findMany({
       where,
       include: {
-        uniforms: { include: { uniform: true } },
         createdBy: true,
       },
       orderBy: [{ eventDate: "desc" }, { startTime: "desc" }, { createdAt: "desc" }],
@@ -2323,6 +2190,7 @@ app.post("/events", verificarToken, exigirAgenda, async (req, res) => {
     information: "-",
     location: "-",
     responsible: "-",
+    uniform: "-",
     militaryOrganizationId: omId,
     createdById: req.user.userId,
   };
@@ -2340,8 +2208,6 @@ app.post("/events", verificarToken, exigirAgenda, async (req, res) => {
     }
     data.eventDate = date;
   }
-
-  let uniformIds = [];
 
   if (type === "no_expedient") {
     const reason = String(req.body?.title || "").trim();
@@ -2367,46 +2233,12 @@ app.post("/events", verificarToken, exigirAgenda, async (req, res) => {
     data.information = normalizeRequiredField(req.body?.information, "Participantes");
     data.location = normalizeRequiredField(req.body?.location, "Local");
     data.responsible = normalizeRequiredField(req.body?.responsible, "Responsável");
-
-    uniformIds = Array.isArray(req.body?.uniformIds)
-      ? [...new Set(req.body.uniformIds.map((id) => String(id)).filter(Boolean))]
-      : [];
-
-    if (uniformIds.length === 0) {
-      throw new ValidationError("Selecione ao menos um uniforme");
-    }
-
-    const found = await prisma.uniform.findMany({
-      where: { id: { in: uniformIds } },
-      select: { id: true },
-    });
-    if (found.length !== uniformIds.length) {
-      throw new ValidationError("Um ou mais uniformes selecionados são inválidos");
-    }
+    data.uniform = normalizeRequiredField(req.body?.uniform, "Uniforme");
   }
 
-  const event = await prisma.$transaction(async (tx) => {
-    const created = await tx.event.create({
-      data: {
-        ...data,
-        uniforms: {
-          create: uniformIds.map((uniformId) => ({ uniformId })),
-        },
-      },
-      include: {
-        uniforms: { include: { uniform: true } },
-        createdBy: true,
-      },
-    });
-
-    if (uniformIds.length > 0) {
-      await tx.uniform.updateMany({
-        where: { id: { in: uniformIds } },
-        data: { usages: { increment: 1 } },
-      });
-    }
-
-    return created;
+  const event = await prisma.event.create({
+    data,
+    include: { createdBy: true },
   });
 
   res.status(201).json(serializeEvent(event));
@@ -2440,6 +2272,7 @@ app.put("/events/:id", verificarToken, exigirAgenda, async (req, res) => {
     information: "-",
     location: "-",
     responsible: "-",
+    uniform: "-",
   };
 
   if (recurring) {
@@ -2455,8 +2288,6 @@ app.put("/events/:id", verificarToken, exigirAgenda, async (req, res) => {
     }
     data.eventDate = date;
   }
-
-  let uniformIds = [];
 
   if (type === "no_expedient") {
     const reason = String(req.body?.title || "").trim();
@@ -2482,50 +2313,13 @@ app.put("/events/:id", verificarToken, exigirAgenda, async (req, res) => {
     data.information = normalizeRequiredField(req.body?.information, "Participantes");
     data.location = normalizeRequiredField(req.body?.location, "Local");
     data.responsible = normalizeRequiredField(req.body?.responsible, "Responsável");
-
-    uniformIds = Array.isArray(req.body?.uniformIds)
-      ? [...new Set(req.body.uniformIds.map((id) => String(id)).filter(Boolean))]
-      : [];
-
-    if (uniformIds.length === 0) {
-      throw new ValidationError("Selecione ao menos um uniforme");
-    }
-
-    const found = await prisma.uniform.findMany({
-      where: { id: { in: uniformIds } },
-      select: { id: true },
-    });
-    if (found.length !== uniformIds.length) {
-      throw new ValidationError("Um ou mais uniformes selecionados são inválidos");
-    }
+    data.uniform = normalizeRequiredField(req.body?.uniform, "Uniforme");
   }
 
-  const event = await prisma.$transaction(async (tx) => {
-    await tx.event.update({
-      where: { id: req.params.id },
-      data: {
-        ...data,
-        uniforms: {
-          deleteMany: {},
-          create: uniformIds.map((uniformId) => ({ uniformId })),
-        },
-      },
-    });
-
-    if (uniformIds.length > 0) {
-      await tx.uniform.updateMany({
-        where: { id: { in: uniformIds } },
-        data: { usages: { increment: 1 } },
-      });
-    }
-
-    return tx.event.findUnique({
-      where: { id: req.params.id },
-      include: {
-        uniforms: { include: { uniform: true } },
-        createdBy: true,
-      },
-    });
+  const event = await prisma.event.update({
+    where: { id: req.params.id },
+    data,
+    include: { createdBy: true },
   });
 
   res.json(serializeEvent(event));
@@ -2593,7 +2387,6 @@ app.get("/event-requests", verificarToken, async (req, res) => {
     prisma.eventRequest.findMany({
       where,
       include: {
-        uniforms: { include: { uniform: true } },
         requestedBy: { include: { rank: true } },
         reviewedBy: { include: { rank: true } },
       },
@@ -2634,12 +2427,9 @@ app.post("/event-requests", verificarToken, async (req, res) => {
       responsible: payload.responsible,
       militaryOrganizationId: omId,
       requestedById: req.user.userId,
-      uniforms: {
-        create: payload.uniformIds.map((uniformId) => ({ uniformId })),
-      },
+      uniform: payload.uniform,
     },
     include: {
-      uniforms: { include: { uniform: true } },
       requestedBy: { include: { rank: true } },
       reviewedBy: { include: { rank: true } },
     },
@@ -2667,9 +2457,6 @@ app.put("/event-requests/:id/status", verificarToken, async (req, res) => {
 
   const existing = await prisma.eventRequest.findFirst({
     where: { id: req.params.id, militaryOrganizationId: omId },
-    include: {
-      uniforms: true,
-    },
   });
 
   if (!existing) {
@@ -2693,9 +2480,7 @@ app.put("/event-requests/:id/status", verificarToken, async (req, res) => {
           responsible: existing.responsible,
           militaryOrganizationId: existing.militaryOrganizationId,
           createdById: existing.requestedById,
-          uniforms: {
-            create: existing.uniforms.map((item) => ({ uniformId: item.uniformId })),
-          },
+          uniform: existing.uniform,
         },
         select: { id: true },
       });
@@ -2724,7 +2509,6 @@ app.put("/event-requests/:id/status", verificarToken, async (req, res) => {
   const result = await prisma.eventRequest.findUnique({
     where: { id: updatedId },
     include: {
-      uniforms: { include: { uniform: true } },
       requestedBy: { include: { rank: true } },
       reviewedBy: { include: { rank: true } },
     },
@@ -3036,7 +2820,6 @@ async function buildQtsSnapshot(omId, start, end) {
       militaryOrganizationId: omId,
       OR: [{ recurring: true }, { eventDate: { gte: start, lte: endInclusive } }],
     },
-    include: { uniforms: { include: { uniform: true } } },
   });
 
   const fabSetting = await prisma.systemSetting.findUnique({
@@ -3089,8 +2872,7 @@ async function buildQtsSnapshot(omId, start, end) {
       participantes: normalizeOptionalField(event.information) || "-",
       local: normalizeOptionalField(event.location) || "-",
       responsavel: normalizeOptionalField(event.responsible) || "-",
-      uniforme:
-        (event.uniforms || []).map((eu) => eu.uniform.uniform).join(" / ") || "-",
+      uniforme: normalizeOptionalField(event.uniform) || "-",
     }));
 
     days.push({

@@ -14,14 +14,14 @@ import {
 } from "lucide-react";
 import {
   getMe,
-  getEventUniforms,
   getEventRequests,
   createEventRequest,
   updateEventRequestStatus,
   deleteEventRequest,
 } from "../lib/api";
-import { buildUniformSortKey } from "../lib/uniformSort";
+import { recordSuggestion } from "../lib/inputSuggestions";
 import Sidebar from "../components/Sidebar";
+import SuggestionBadges from "../components/SuggestionBadges";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 
 const STATUS_OPTIONS = [
@@ -31,6 +31,8 @@ const STATUS_OPTIONS = [
   { value: "negado", label: "Negado" },
 ];
 
+const SUGESTAO_UNIFORME = "agenda:uniforme";
+
 const FORM_INICIAL = {
   eventDate: "",
   startTime: "",
@@ -39,23 +41,8 @@ const FORM_INICIAL = {
   information: "",
   location: "",
   responsible: "",
-  uniformIds: [],
+  uniform: "",
 };
-
-function ordenarUniformes(lista) {
-  return [...(lista || [])].sort((a, b) => {
-    const contadorA = a.usages ?? 0;
-    const contadorB = b.usages ?? 0;
-    if (contadorB !== contadorA) {
-      return contadorB - contadorA;
-    }
-    const keyA = buildUniformSortKey(a.uniform);
-    const keyB = buildUniformSortKey(b.uniform);
-    return keyA.localeCompare(keyB, "pt-BR", {
-      sensitivity: "base",
-    });
-  });
-}
 
 function formatarData(iso) {
   if (!iso) return "";
@@ -95,8 +82,8 @@ export default function SolicitacoesPage() {
   const [usuario, setUsuario] = useState(null);
   const [carregandoUsuario, setCarregandoUsuario] = useState(true);
 
-  const [uniformes, setUniformes] = useState([]);
   const [form, setForm] = useState(FORM_INICIAL);
+  const [sugestoesVersao, setSugestoesVersao] = useState(0);
   const [salvando, setSalvando] = useState(false);
   const [modalAberto, setModalAberto] = useState(false);
   const [modalVisivel, setModalVisivel] = useState(false);
@@ -130,11 +117,6 @@ export default function SolicitacoesPage() {
         ["editor", "validador", "aprovador"].includes(r.code)
       ) || false,
     [usuario]
-  );
-
-  const uniformesOrdenados = useMemo(
-    () => ordenarUniformes(uniformes),
-    [uniformes]
   );
 
   const carregarLista = useCallback(
@@ -175,13 +157,9 @@ export default function SolicitacoesPage() {
           return;
         }
 
-        const [dadosUsuario, respostaUniformes] = await Promise.all([
-          getMe(),
-          getEventUniforms(),
-        ]);
+        const dadosUsuario = await getMe();
 
         setUsuario(dadosUsuario);
-        setUniformes(respostaUniformes.data || []);
       } catch (errorLoad) {
         localStorage.removeItem("token");
         router.push("/");
@@ -226,21 +204,6 @@ export default function SolicitacoesPage() {
     return () => observer.disconnect();
   }, [hasMore, carregandoLista, carregandoMais, pagina, carregarLista]);
 
-  const alternarUniforme = (id) => {
-    setForm((atual) => {
-      const set = new Set(atual.uniformIds);
-      if (set.has(id)) {
-        set.delete(id);
-      } else {
-        set.add(id);
-      }
-      return {
-        ...atual,
-        uniformIds: [...set],
-      };
-    });
-  };
-
   const handleCreate = async (e) => {
     e.preventDefault();
     setErro("");
@@ -249,6 +212,8 @@ export default function SolicitacoesPage() {
 
     try {
       await createEventRequest(form);
+      recordSuggestion(SUGESTAO_UNIFORME, form.uniform.trim());
+      setSugestoesVersao((v) => v + 1);
       setForm(FORM_INICIAL);
       fecharModalSolicitacao();
       setSucesso("Solicitação enviada com sucesso");
@@ -437,8 +402,8 @@ export default function SolicitacoesPage() {
                               {item.endTime ? ` às ${item.endTime}` : ""}
                             </p>
                             <p className="text-sm text-gray-700 mb-1">
-                              <span className="font-medium">Uniformes:</span>{" "}
-                              {(item.uniforms || []).map((u) => u.uniform).join(", ") || "-"}
+                              <span className="font-medium">Uniforme:</span>{" "}
+                              {item.uniform || "-"}
                             </p>
                             {item.information && (
                               <p className="text-sm text-gray-700 mb-1">{item.information}</p>
@@ -628,46 +593,24 @@ export default function SolicitacoesPage() {
                 />
               </label>
 
-              <div>
-                <span className="text-sm text-gray-700 block mb-2">Uniformes</span>
-                <p className="mb-2 text-xs text-gray-500">Ordenados pelo mais utilizado</p>
-                <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200">
-                  {uniformesOrdenados.length === 0 ? (
-                    <p className="p-3 text-sm text-gray-500">Nenhum uniforme cadastrado.</p>
-                  ) : (
-                    <ul className="divide-y divide-gray-100">
-                      {uniformesOrdenados.map((uniforme) => {
-                        const marcado = form.uniformIds.includes(uniforme.id);
-                        return (
-                          <li key={uniforme.id}>
-                            <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50">
-                              <input
-                                type="checkbox"
-                                checked={marcado}
-                                onChange={() => alternarUniforme(uniforme.id)}
-                                className="h-4 w-4 rounded border-gray-300 text-blue-900 focus:ring-blue-900"
-                              />
-                              <span className="text-sm font-medium text-gray-900">
-                                {uniforme.uniform}
-                              </span>
-                              {uniforme.description && (
-                                <span className="truncate text-xs text-gray-500">
-                                  {uniforme.description}
-                                </span>
-                              )}
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-                {form.uniformIds.length > 0 && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    {form.uniformIds.length} selecionado(s)
-                  </p>
-                )}
-              </div>
+              <label className="block">
+                <span className="text-sm text-gray-700">Uniforme *</span>
+                <input
+                  type="text"
+                  value={form.uniform}
+                  onChange={(e) => setForm((atual) => ({ ...atual, uniform: e.target.value }))}
+                  className="input-field mt-1"
+                  placeholder="Ex.: 9º A"
+                  required
+                />
+                <SuggestionBadges
+                  storageKey={SUGESTAO_UNIFORME}
+                  refreshKey={sugestoesVersao}
+                  onSelect={(sugestao) =>
+                    setForm((atual) => ({ ...atual, uniform: sugestao.value }))
+                  }
+                />
+              </label>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button

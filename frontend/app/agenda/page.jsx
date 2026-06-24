@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarPlus,
@@ -20,12 +20,10 @@ import {
 import {
   getMe,
   getEvents,
-  getEventUniforms,
   createEvent,
   updateEvent,
   deleteEvent,
 } from "../lib/api";
-import { buildUniformSortKey } from "../lib/uniformSort";
 import { recordSuggestion } from "../lib/inputSuggestions";
 import { useToast } from "../hooks/useToast";
 import Sidebar from "../components/Sidebar";
@@ -39,6 +37,7 @@ const SUGESTOES_CHAVES = {
   information: "agenda:participantes",
   location: "agenda:local",
   responsible: "agenda:responsavel",
+  uniform: "agenda:uniforme",
 };
 
 const TIPOS = [
@@ -67,24 +66,8 @@ const FORM_VAZIO = {
   information: "",
   location: "",
   responsible: "",
-  uniformIds: [],
+  uniform: "",
 };
-
-// Ordena por mais usado (usages desc) e, em empate, ordem alfabética.
-function ordenarUniformes(lista) {
-  return [...(lista || [])].sort((a, b) => {
-    const contadorA = a.usages ?? 0;
-    const contadorB = b.usages ?? 0;
-    if (contadorB !== contadorA) {
-      return contadorB - contadorA;
-    }
-    const keyA = buildUniformSortKey(a.uniform);
-    const keyB = buildUniformSortKey(b.uniform);
-    return keyA.localeCompare(keyB, "pt-BR", {
-      sensitivity: "base",
-    });
-  });
-}
 
 function rotuloTipo(type) {
   return TIPOS.find((t) => t.value === type)?.label || "Evento";
@@ -174,7 +157,6 @@ export default function AgendaPage() {
   const [usuario, setUsuario] = useState(null);
   const [carregando, setCarregando] = useState(true);
 
-  const [uniformes, setUniformes] = useState([]);
   const [busca, setBusca] = useState("");
   const [buscaAplicada, setBuscaAplicada] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -239,11 +221,6 @@ export default function AgendaPage() {
   const podeAgenda = usuario?.roles?.some((r) => AGENDA_ROLES.includes(r.code));
 
   const semDados = form.type === "no_expedient";
-
-  const uniformesOrdenados = useMemo(
-    () => ordenarUniformes(uniformes),
-    [uniformes]
-  );
 
   useEffect(() => {
     const carregarUsuario = async () => {
@@ -311,15 +288,6 @@ export default function AgendaPage() {
     []
   );
 
-  const carregarUniformes = useCallback(async () => {
-    try {
-      const resposta = await getEventUniforms();
-      setUniformes(resposta.data || []);
-    } catch (error) {
-      setErro(error.message || "Erro ao carregar uniformes");
-    }
-  }, []);
-
   const recarregar = useCallback(
     async (buscar = buscaAplicada) => {
       await carregarFeed({
@@ -347,11 +315,6 @@ export default function AgendaPage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [podeAgenda, abaRecorrente]);
-
-  useEffect(() => {
-    if (!podeAgenda) return;
-    carregarUniformes();
-  }, [podeAgenda, carregarUniformes]);
 
   useEffect(() => {
     if (!podeAgenda) return;
@@ -439,7 +402,7 @@ export default function AgendaPage() {
       information: evento.information || "",
       location: evento.location || "",
       responsible: evento.responsible || "",
-      uniformIds: (evento.uniforms || []).map((u) => u.id),
+      uniform: evento.uniform || "",
     });
     setEditandoId(evento.id);
     setErro("");
@@ -465,18 +428,6 @@ export default function AgendaPage() {
         weekdays: existe
           ? atual.weekdays.filter((d) => d !== dia)
           : [...atual.weekdays, dia],
-      };
-    });
-  };
-
-  const alternarUniforme = (id) => {
-    setForm((atual) => {
-      const existe = atual.uniformIds.includes(id);
-      return {
-        ...atual,
-        uniformIds: existe
-          ? atual.uniformIds.filter((u) => u !== id)
-          : [...atual.uniformIds, id],
       };
     });
   };
@@ -517,8 +468,8 @@ export default function AgendaPage() {
         setErro("Informe o responsável");
         return;
       }
-      if (form.uniformIds.length === 0) {
-        setErro("Selecione ao menos um uniforme");
+      if (!form.uniform.trim()) {
+        setErro("Informe o uniforme");
         return;
       }
     } else if (!form.title.trim()) {
@@ -542,7 +493,7 @@ export default function AgendaPage() {
         payload.information = form.information.trim();
         payload.location = form.location.trim();
         payload.responsible = form.responsible.trim();
-        payload.uniformIds = form.uniformIds;
+        payload.uniform = form.uniform.trim();
         payload.title = form.title.trim();
       } else {
         payload.title = form.title.trim();
@@ -561,6 +512,7 @@ export default function AgendaPage() {
         recordSuggestion(SUGESTOES_CHAVES.information, form.information.trim());
         recordSuggestion(SUGESTOES_CHAVES.location, form.location.trim());
         recordSuggestion(SUGESTOES_CHAVES.responsible, form.responsible.trim());
+        recordSuggestion(SUGESTOES_CHAVES.uniform, form.uniform.trim());
         setSugestoesVersao((v) => v + 1);
       }
       // Se o tipo de recorrência mudou, volta para a aba correspondente
@@ -570,7 +522,6 @@ export default function AgendaPage() {
         await recarregar();
       }
       fecharModal();
-      await carregarUniformes();
     } catch (error) {
       setErro(error.message || "Erro ao salvar evento");
     } finally {
@@ -694,17 +645,11 @@ export default function AgendaPage() {
             </p>
           )}
 
-          {evento.uniforms?.length > 0 && (
+          {evento.uniform && evento.uniform !== "-" && (
             <div className="mt-2 flex flex-wrap gap-1">
-              {evento.uniforms.map((u) => (
-                <span
-                  key={u.id}
-                  className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700"
-                  title={u.description || ""}
-                >
-                  {u.uniform}
-                </span>
-              ))}
+              <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
+                {evento.uniform}
+              </span>
             </div>
           )}
         </div>
@@ -1217,49 +1162,28 @@ export default function AgendaPage() {
                     />
                   </div>
 
-                  {/* Seletor de uniformes */}
+                  {/* Uniforme */}
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Uniformes <span className="text-red-500">*</span>
+                      Uniforme <span className="text-red-500">*</span>
                     </label>
-                    <p className="mb-2 text-xs text-gray-500">
-                      Ordenados pelo mais utilizado
-                    </p>
-                    <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200">
-                      {uniformesOrdenados.length === 0 ? (
-                        <p className="p-3 text-sm text-gray-500">
-                          Nenhum uniforme cadastrado.
-                        </p>
-                      ) : (
-                        <ul className="divide-y divide-gray-100">
-                          {uniformesOrdenados.map((u) => (
-                            <li key={u.id}>
-                              <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50">
-                                <input
-                                  type="checkbox"
-                                  checked={form.uniformIds.includes(u.id)}
-                                  onChange={() => alternarUniforme(u.id)}
-                                  className="h-4 w-4 rounded border-gray-300 text-blue-900 focus:ring-blue-900"
-                                />
-                                <span className="text-sm font-medium text-gray-900">
-                                  {u.uniform}
-                                </span>
-                                {u.description && (
-                                  <span className="truncate text-xs text-gray-500">
-                                    {u.description}
-                                  </span>
-                                )}
-                              </label>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    {form.uniformIds.length > 0 && (
-                      <p className="mt-1 text-xs text-gray-500">
-                        {form.uniformIds.length} selecionado(s)
-                      </p>
-                    )}
+                    <input
+                      type="text"
+                      value={form.uniform}
+                      onChange={(e) =>
+                        setForm({ ...form, uniform: e.target.value })
+                      }
+                      placeholder="Ex.: 9º A"
+                      className="input-field"
+                      required
+                    />
+                    <SuggestionBadges
+                      storageKey={SUGESTOES_CHAVES.uniform}
+                      refreshKey={sugestoesVersao}
+                      onSelect={(item) =>
+                        setForm((atual) => ({ ...atual, uniform: item.value }))
+                      }
+                    />
                   </div>
                 </>
               )}

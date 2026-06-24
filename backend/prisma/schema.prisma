@@ -44,23 +44,6 @@ model Rank {
   @@map("ranks")
 }
 
-// Uniform
-model Uniform {
-  id          String  @id @default(cuid())
-  uniform     String  @unique
-  description String?
-  usages      Int     @default(0)
-  active      Boolean @default(true)
-
-  eventUniforms EventUniform[]
-  eventRequestUniforms EventRequestUniform[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("uniforms")
-}
-
 // Available roles
 model Role {
   id          String  @id @default(cuid())
@@ -158,6 +141,7 @@ model Event {
   information String @db.Text
   location    String
   responsible String
+  uniform     String @default("-")
 
   militaryOrganizationId String
   militaryOrganization   MilitaryOrganization @relation(fields: [militaryOrganizationId], references: [id])
@@ -165,7 +149,6 @@ model Event {
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 
-  uniforms EventUniform[]
   eventRequest EventRequest?
 
   createdAt DateTime @default(now())
@@ -189,6 +172,7 @@ model EventRequest {
   information String @db.Text
   location    String
   responsible String
+  uniform     String @default("-")
 
   militaryOrganizationId String
   militaryOrganization   MilitaryOrganization @relation(fields: [militaryOrganizationId], references: [id])
@@ -203,8 +187,6 @@ model EventRequest {
   eventId String? @unique
   event   Event?  @relation(fields: [eventId], references: [id], onDelete: SetNull)
 
-  uniforms EventRequestUniform[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -214,35 +196,6 @@ model EventRequest {
   @@index([status])
   @@index([eventDate])
   @@map("event_requests")
-}
-
-model EventRequestUniform {
-  id             String @id @default(cuid())
-  eventRequestId String
-  uniformId      String
-
-  eventRequest EventRequest @relation(fields: [eventRequestId], references: [id], onDelete: Cascade)
-  uniform      Uniform      @relation(fields: [uniformId], references: [id])
-
-  @@unique([eventRequestId, uniformId])
-  @@index([eventRequestId])
-  @@index([uniformId])
-  @@map("event_request_uniforms")
-}
-
-// Event-Uniform relation (an event can reference multiple uniforms)
-model EventUniform {
-  id        String @id @default(cuid())
-  eventId   String
-  uniformId String
-
-  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  uniform Uniform @relation(fields: [uniformId], references: [id])
-
-  @@unique([eventId, uniformId])
-  @@index([eventId])
-  @@index([uniformId])
-  @@map("event_uniforms")
 }
 
 model SystemSetting {

@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   Award,
-  Shirt,
   CalendarPlus,
   CalendarClock,
   LogOut,
@@ -87,12 +86,6 @@ const NAV_ITEMS = [
     label: "Postos/Graduações",
     href: "/ranks",
     icon: Award,
-    roles: ["admin_global"],
-  },
-  {
-    label: "Uniformes",
-    href: "/uniforms",
-    icon: Shirt,
     roles: ["admin_global"],
   },
   {
