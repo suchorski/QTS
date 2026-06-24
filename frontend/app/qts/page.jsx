@@ -20,6 +20,7 @@ import Sidebar from "../components/Sidebar";
 import QtsDocument from "../components/QtsDocument";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import RichTextEditor from "../components/RichTextEditor";
+import SuggestionBadges from "../components/SuggestionBadges";
 import { useToast } from "../hooks/useToast";
 import {
   getMe,
@@ -29,6 +30,9 @@ import {
   createQts,
   deleteQts,
 } from "../lib/api";
+import { recordSuggestion } from "../lib/inputSuggestions";
+
+const SUGESTAO_OBSERVACAO_CHAVE = "qts:observacao";
 
 const STATUS_INFO = {
   rascunho: {
@@ -133,6 +137,8 @@ export default function QtsPage() {
   const [excludedItemKeys, setExcludedItemKeys] = useState([]);
 
   const observacaoRef = useRef(null);
+
+  const [sugestoesVersao, setSugestoesVersao] = useState(0);
 
   const ehEditor = usuario?.roles?.some((r) => r.code === "editor");
 
@@ -276,6 +282,16 @@ export default function QtsPage() {
         observacaoRef.current?.innerHTML || "",
         excludedItemKeys
       );
+      const observacaoHtml = observacaoRef.current?.innerHTML || "";
+      const observacaoTexto = (observacaoRef.current?.innerText || "").trim();
+      if (observacaoTexto) {
+        recordSuggestion(
+          SUGESTAO_OBSERVACAO_CHAVE,
+          observacaoTexto,
+          observacaoHtml
+        );
+        setSugestoesVersao((v) => v + 1);
+      }
       setPreview(null);
       setExcludedItemKeys([]);
       showSucesso("QTS salvo como minuta com sucesso.");
@@ -493,6 +509,16 @@ export default function QtsPage() {
                       <span className="ml-1 font-normal text-gray-400">(aparece no documento entre os dias e as assinaturas)</span>
                     </label>
                     <RichTextEditor editorRef={observacaoRef} />
+                    <SuggestionBadges
+                      storageKey={SUGESTAO_OBSERVACAO_CHAVE}
+                      refreshKey={sugestoesVersao}
+                      onSelect={(item) => {
+                        if (observacaoRef.current) {
+                          observacaoRef.current.innerHTML = item.value;
+                          observacaoRef.current.focus();
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               </div>

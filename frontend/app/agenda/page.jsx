@@ -26,11 +26,20 @@ import {
   deleteEvent,
 } from "../lib/api";
 import { buildUniformSortKey } from "../lib/uniformSort";
+import { recordSuggestion } from "../lib/inputSuggestions";
 import { useToast } from "../hooks/useToast";
 import Sidebar from "../components/Sidebar";
+import SuggestionBadges from "../components/SuggestionBadges";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 
 const AGENDA_ROLES = ["editor", "validador", "aprovador"];
+
+const SUGESTOES_CHAVES = {
+  title: "agenda:evento",
+  information: "agenda:participantes",
+  location: "agenda:local",
+  responsible: "agenda:responsavel",
+};
 
 const TIPOS = [
   { value: "normal", label: "Evento" },
@@ -185,6 +194,7 @@ export default function AgendaPage() {
   const [modalAberto, setModalAberto] = useState(false);
   const [modalVisivel, setModalVisivel] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [sugestoesVersao, setSugestoesVersao] = useState(0);
   const [excluindoId, setExcluindoId] = useState(null);
   const [confirmacao, setConfirmacao] = useState(CONFIRMACAO_VAZIA);
 
@@ -544,6 +554,14 @@ export default function AgendaPage() {
       } else {
         await createEvent(payload);
         showSucesso("Evento incluído na agenda com sucesso");
+      }
+
+      if (!semDados) {
+        recordSuggestion(SUGESTOES_CHAVES.title, form.title.trim());
+        recordSuggestion(SUGESTOES_CHAVES.information, form.information.trim());
+        recordSuggestion(SUGESTOES_CHAVES.location, form.location.trim());
+        recordSuggestion(SUGESTOES_CHAVES.responsible, form.responsible.trim());
+        setSugestoesVersao((v) => v + 1);
       }
       // Se o tipo de recorrência mudou, volta para a aba correspondente
       if (form.recurring !== abaRecorrente) {
@@ -1112,6 +1130,13 @@ export default function AgendaPage() {
                       placeholder="Ex.: Formatura geral"
                       className="input-field"
                     />
+                    <SuggestionBadges
+                      storageKey={SUGESTOES_CHAVES.title}
+                      refreshKey={sugestoesVersao}
+                      onSelect={(item) =>
+                        setForm((atual) => ({ ...atual, title: item.value }))
+                      }
+                    />
                   </div>
 
                   {/* Participantes */}
@@ -1128,6 +1153,16 @@ export default function AgendaPage() {
                       placeholder="Ex.: Todo o efetivo"
                       className="input-field"
                       required
+                    />
+                    <SuggestionBadges
+                      storageKey={SUGESTOES_CHAVES.information}
+                      refreshKey={sugestoesVersao}
+                      onSelect={(item) =>
+                        setForm((atual) => ({
+                          ...atual,
+                          information: item.value,
+                        }))
+                      }
                     />
                   </div>
 
@@ -1146,6 +1181,13 @@ export default function AgendaPage() {
                       className="input-field"
                       required
                     />
+                    <SuggestionBadges
+                      storageKey={SUGESTOES_CHAVES.location}
+                      refreshKey={sugestoesVersao}
+                      onSelect={(item) =>
+                        setForm((atual) => ({ ...atual, location: item.value }))
+                      }
+                    />
                   </div>
 
                   {/* Responsável */}
@@ -1162,6 +1204,16 @@ export default function AgendaPage() {
                       placeholder="Ex.: Cap Silva"
                       className="input-field"
                       required
+                    />
+                    <SuggestionBadges
+                      storageKey={SUGESTOES_CHAVES.responsible}
+                      refreshKey={sugestoesVersao}
+                      onSelect={(item) =>
+                        setForm((atual) => ({
+                          ...atual,
+                          responsible: item.value,
+                        }))
+                      }
                     />
                   </div>
 
