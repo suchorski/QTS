@@ -261,7 +261,9 @@ export default function QtsDocument({ data, onSolicitarExclusaoItem }) {
               Observações
             </p>
             <div
-              className="whitespace-pre-wrap text-sm text-slate-800 [&_b]:font-bold [&_i]:italic [&_u]:underline"
+              className="whitespace-pre-wrap text-justify text-sm text-slate-800 [&_b]:font-bold [&_i]:italic [&_u]:underline"
+              style={{ hyphens: 'auto', WebkitHyphens: 'auto', msHyphens: 'auto' }}
+              lang="pt-BR"
               dangerouslySetInnerHTML={{ __html: data.observacao }}
             />
           </div>
