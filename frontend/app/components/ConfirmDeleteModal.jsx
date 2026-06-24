@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
 
 export default function ConfirmDeleteModal({
   aberto,
@@ -10,12 +10,23 @@ export default function ConfirmDeleteModal({
   confirmarTexto = "Excluir",
   cancelarTexto = "Cancelar",
   confirmando = false,
+  confirmandoTexto = "Excluindo...",
+  variante = "perigo",
   onCancelar,
   onConfirmar,
 }) {
   if (!aberto) return null;
 
   const podeFechar = !confirmando;
+  const ehSucesso = variante === "sucesso";
+  const IconeCabecalho = ehSucesso ? CheckCircle2 : AlertTriangle;
+  const IconeConfirmar = ehSucesso ? CheckCircle2 : Trash2;
+  const cabecalhoClasse = ehSucesso
+    ? "bg-green-100 text-green-600"
+    : "bg-red-100 text-red-600";
+  const confirmarClasse = ehSucesso
+    ? "bg-green-700 hover:bg-green-600"
+    : "bg-red-600 hover:bg-red-700";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -32,8 +43,8 @@ export default function ConfirmDeleteModal({
         }`}
       >
         <div className="mb-4 flex items-start gap-3">
-          <div className="mt-0.5 rounded-full bg-red-100 p-2 text-red-600">
-            <AlertTriangle className="h-5 w-5" />
+          <div className={`mt-0.5 rounded-full p-2 ${cabecalhoClasse}`}>
+            <IconeCabecalho className="h-5 w-5" />
           </div>
           <div>
             <h3 className="text-lg font-bold text-gray-900">{titulo}</h3>
@@ -53,11 +64,11 @@ export default function ConfirmDeleteModal({
           <button
             type="button"
             onClick={onConfirmar}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${confirmarClasse}`}
             disabled={confirmando}
           >
-            <Trash2 className="h-4 w-4" />
-            {confirmando ? "Excluindo..." : confirmarTexto}
+            <IconeConfirmar className="h-4 w-4" />
+            {confirmando ? confirmandoTexto : confirmarTexto}
           </button>
         </div>
       </div>

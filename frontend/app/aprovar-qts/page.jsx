@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   Eye,
   X,
+  XCircle,
   CheckCircle2,
   FileText,
   Clock,
@@ -15,7 +16,8 @@ import {
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import QtsDocument from "../components/QtsDocument";
-import { getMe, getQtsList, getQts, updateQtsStatus } from "../lib/api";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import { getMe, getQtsList, getQts, updateQtsStatus, deleteQts } from "../lib/api";
 
 const STATUS_INFO = {
   minuta: {
@@ -43,6 +45,13 @@ function StatusBadge({ status }) {
   );
 }
 
+const CONFIRMACAO_VAZIA = {
+  aberto: false,
+  visivel: false,
+  tipo: null,
+  registro: null,
+};
+
 export default function AprovarQtsPage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState(null);
@@ -57,6 +66,8 @@ export default function AprovarQtsPage() {
   const [modalVisivel, setModalVisivel] = useState(false);
   const [carregandoModal, setCarregandoModal] = useState(false);
   const [aprovandoId, setAprovandoId] = useState(null);
+  const [rejeitandoId, setRejeitandoId] = useState(null);
+  const [confirmacao, setConfirmacao] = useState(CONFIRMACAO_VAZIA);
 
   const ehAprovador = usuario?.roles?.some((r) => r.code === "aprovador");
 
@@ -115,9 +126,21 @@ export default function AprovarQtsPage() {
     setTimeout(() => setModalRegistro(null), 200);
   };
 
-  const aprovar = async (registro) => {
+  const abrirConfirmacao = (tipo, registro) => {
     setErro("");
     setSucesso("");
+    setConfirmacao({ aberto: true, visivel: false, tipo, registro });
+    requestAnimationFrame(() =>
+      setConfirmacao((atual) => ({ ...atual, visivel: true }))
+    );
+  };
+
+  const fecharConfirmacao = () => {
+    setConfirmacao((atual) => ({ ...atual, visivel: false }));
+    setTimeout(() => setConfirmacao(CONFIRMACAO_VAZIA), 200);
+  };
+
+  const aprovar = async (registro) => {
     setAprovandoId(registro.id);
     try {
       await updateQtsStatus(registro.id, "aprovado");
@@ -130,6 +153,34 @@ export default function AprovarQtsPage() {
       setErro(error.message || "Erro ao aprovar o QTS");
     } finally {
       setAprovandoId(null);
+      fecharConfirmacao();
+    }
+  };
+
+  const rejeitar = async (registro) => {
+    setRejeitandoId(registro.id);
+    try {
+      await deleteQts(registro.id);
+      setSucesso(`QTS de ${registro.dateLabel} rejeitado e excluído.`);
+      if (modalRegistro?.resumo?.id === registro.id) {
+        fecharVisualizacao();
+      }
+      await carregarValidados();
+    } catch (error) {
+      setErro(error.message || "Erro ao rejeitar o QTS");
+    } finally {
+      setRejeitandoId(null);
+      fecharConfirmacao();
+    }
+  };
+
+  const confirmarAcao = () => {
+    const { tipo, registro } = confirmacao;
+    if (!registro) return;
+    if (tipo === "aprovar") {
+      aprovar(registro);
+    } else if (tipo === "rejeitar") {
+      rejeitar(registro);
     }
   };
 
@@ -282,8 +333,29 @@ export default function AprovarQtsPage() {
                             Visualizar
                           </button>
                           <button
-                            onClick={() => aprovar(registro)}
-                            disabled={aprovandoId === registro.id}
+                            onClick={() => abrirConfirmacao("rejeitar", registro)}
+                            disabled={
+                              rejeitandoId === registro.id ||
+                              aprovandoId === registro.id
+                            }
+                            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                            title="Rejeitar"
+                          >
+                            {rejeitandoId === registro.id ? (
+                              <RefreshCcw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <XCircle className="h-4 w-4" />
+                            )}
+                            {rejeitandoId === registro.id
+                              ? "Rejeitando..."
+                              : "Rejeitar"}
+                          </button>
+                          <button
+                            onClick={() => abrirConfirmacao("aprovar", registro)}
+                            disabled={
+                              aprovandoId === registro.id ||
+                              rejeitandoId === registro.id
+                            }
                             className="flex items-center gap-1.5 rounded-lg bg-green-700 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600 disabled:opacity-60"
                             title="Aprovar"
                           >
@@ -334,8 +406,28 @@ export default function AprovarQtsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => aprovar(modalRegistro.resumo)}
-                  disabled={aprovandoId === modalRegistro.resumo?.id}
+                  onClick={() => abrirConfirmacao("rejeitar", modalRegistro.resumo)}
+                  disabled={
+                    rejeitandoId === modalRegistro.resumo?.id ||
+                    aprovandoId === modalRegistro.resumo?.id
+                  }
+                  className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                >
+                  {rejeitandoId === modalRegistro.resumo?.id ? (
+                    <RefreshCcw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
+                  {rejeitandoId === modalRegistro.resumo?.id
+                    ? "Rejeitando..."
+                    : "Rejeitar"}
+                </button>
+                <button
+                  onClick={() => abrirConfirmacao("aprovar", modalRegistro.resumo)}
+                  disabled={
+                    aprovandoId === modalRegistro.resumo?.id ||
+                    rejeitandoId === modalRegistro.resumo?.id
+                  }
                   className="flex items-center gap-1.5 rounded-lg bg-green-700 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600 disabled:opacity-60"
                 >
                   {aprovandoId === modalRegistro.resumo?.id ? (
@@ -372,6 +464,33 @@ export default function AprovarQtsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteModal
+        aberto={confirmacao.aberto}
+        visivel={confirmacao.visivel}
+        variante={confirmacao.tipo === "aprovar" ? "sucesso" : "perigo"}
+        titulo={
+          confirmacao.tipo === "aprovar"
+            ? "Confirmar aprovação"
+            : "Confirmar rejeição"
+        }
+        descricao={
+          confirmacao.tipo === "aprovar"
+            ? `Deseja aprovar o QTS de ${confirmacao.registro?.dateLabel}?`
+            : `Deseja rejeitar o QTS de ${confirmacao.registro?.dateLabel}? O QTS validado será excluído permanentemente.`
+        }
+        confirmarTexto={confirmacao.tipo === "aprovar" ? "Aprovar" : "Rejeitar"}
+        confirmandoTexto={
+          confirmacao.tipo === "aprovar" ? "Aprovando..." : "Rejeitando..."
+        }
+        confirmando={
+          confirmacao.tipo === "aprovar"
+            ? aprovandoId === confirmacao.registro?.id
+            : rejeitandoId === confirmacao.registro?.id
+        }
+        onCancelar={fecharConfirmacao}
+        onConfirmar={confirmarAcao}
+      />
     </div>
   );
 }

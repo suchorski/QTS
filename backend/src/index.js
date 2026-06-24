@@ -3761,8 +3761,8 @@ function scheduleQtsArchiveJob() {
 
 scheduleQtsArchiveJob();
 
-// Excluir minuta (editor da própria OM)
-app.delete("/qts/:id", verificarToken, exigirEditor, async (req, res) => {
+// Excluir QTS: editor pode excluir minuta/validado; aprovador pode rejeitar (excluir) validado
+app.delete("/qts/:id", verificarToken, async (req, res) => {
   const omId = await getCurrentUserOmId(req.user.userId);
   if (!omId) {
     return res.status(403).json({ error: "Usuário sem OM vinculada" });
@@ -3777,6 +3777,16 @@ app.delete("/qts/:id", verificarToken, exigirEditor, async (req, res) => {
   }
   if (qts.status === "aprovado") {
     throw new ValidationError("Um QTS aprovado não pode ser excluído");
+  }
+
+  const roleCodes = await getRoleCodesByUserId(req.user.userId);
+  const ehEditor = roleCodes.includes("editor");
+  const ehAprovador = roleCodes.includes("aprovador");
+  // Aprovador pode rejeitar (excluir) um QTS validado; demais exclusões exigem editor.
+  const permitido =
+    ehEditor || (qts.status === "validado" && ehAprovador);
+  if (!permitido) {
+    return res.status(403).json({ error: "Acesso negado" });
   }
 
   await prisma.qts.delete({ where: { id: qts.id } });
