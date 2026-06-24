@@ -127,6 +127,9 @@ export default function QtsPage() {
   const [salvos, setSalvos] = useState([]);
   const [carregandoSalvos, setCarregandoSalvos] = useState(true);
 
+  const [validados, setValidados] = useState([]);
+  const [carregandoValidados, setCarregandoValidados] = useState(true);
+
   const [modalRegistro, setModalRegistro] = useState(null);
   const [modalVisivel, setModalVisivel] = useState(false);
   const [carregandoModal, setCarregandoModal] = useState(false);
@@ -154,6 +157,22 @@ export default function QtsPage() {
     }
   }, []);
 
+  const carregarValidados = useCallback(async () => {
+    setCarregandoValidados(true);
+    try {
+      const resposta = await getQtsList({
+        page: 1,
+        limit: 20,
+        status: "validado",
+      });
+      setValidados(resposta.data || []);
+    } catch (error) {
+      // silencioso: a listagem é complementar
+    } finally {
+      setCarregandoValidados(false);
+    }
+  }, []);
+
   useEffect(() => {
     const carregar = async () => {
       try {
@@ -165,7 +184,7 @@ export default function QtsPage() {
         const dados = await getMe();
         setUsuario(dados);
         if (dados?.roles?.some((r) => r.code === "editor")) {
-          await carregarSalvos();
+          await Promise.all([carregarSalvos(), carregarValidados()]);
         }
       } catch (error) {
         localStorage.removeItem("token");
@@ -175,7 +194,7 @@ export default function QtsPage() {
       }
     };
     carregar();
-  }, [router, carregarSalvos]);
+  }, [router, carregarSalvos, carregarValidados]);
 
   const aplicarSemana = (offsetSemanas) => {
     const { from, to } = semanaIntervalo(offsetSemanas);
@@ -351,7 +370,7 @@ export default function QtsPage() {
       await deleteQts(confirmacao.registro.id);
       showSucesso("QTS excluído com sucesso.");
       fecharConfirmacao();
-      await carregarSalvos();
+      await Promise.all([carregarSalvos(), carregarValidados()]);
     } catch (error) {
       setErro(error.message || "Erro ao excluir o QTS");
     } finally {
@@ -635,6 +654,88 @@ export default function QtsPage() {
                               <Trash2 className="h-4 w-4" />
                             </button>
                           )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* QTS validados */}
+              <div className="card mt-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-blue-900">
+                    QTS validados
+                  </h2>
+                  <span className="text-sm text-gray-500">
+                    {validados.length} registro{validados.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                {carregandoValidados ? (
+                  <p className="py-8 text-center text-gray-500">Carregando...</p>
+                ) : validados.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                    <p className="text-gray-500">
+                      Nenhum QTS validado no momento.
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="space-y-3">
+                    {validados.map((registro) => (
+                      <li
+                        key={registro.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-4 hover:bg-gray-50"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-gray-900">
+                              {registro.dateLabel}
+                            </span>
+                            <StatusBadge status={registro.status} />
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                            {registro.createdBy?.name && (
+                              <span>
+                                Gerado por{" "}
+                                {registro.createdBy.rank
+                                  ? `${registro.createdBy.rank} `
+                                  : ""}
+                                {registro.createdBy.warName ||
+                                  registro.createdBy.name}
+                              </span>
+                            )}
+                            {registro.validatedBy?.name && (
+                              <span className="flex items-center gap-1 text-blue-700">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Validado por{" "}
+                                {registro.validatedBy.rank
+                                  ? `${registro.validatedBy.rank} `
+                                  : ""}
+                                {registro.validatedBy.warName ||
+                                  registro.validatedBy.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => abrirVisualizacao(registro)}
+                            className="rounded-lg p-2 text-blue-700 transition-colors hover:bg-blue-50"
+                            title="Visualizar"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => abrirConfirmacao(registro)}
+                            disabled={excluindoId === registro.id}
+                            className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </li>
                     ))}
