@@ -2967,6 +2967,14 @@ function minutosDoHorario(time) {
   return Number.parseInt(h, 10) * 60 + Number.parseInt(m, 10);
 }
 
+// Para desempate por hora final: ausência de hora final conta como o maior valor,
+// de modo que eventos sem término definido fiquem primeiro na ordem decrescente.
+function minutosDoHorarioFim(time) {
+  if (!time) return Number.MAX_SAFE_INTEGER;
+  const [h, m] = String(time).split(":");
+  return Number.parseInt(h, 10) * 60 + Number.parseInt(m, 10);
+}
+
 function buildQtsItemKey(eventId, date) {
   return `${eventId}:${date}`;
 }
@@ -3061,9 +3069,13 @@ async function buildQtsSnapshot(omId, start, end) {
     const noExpedientEvents = doDia.filter((event) => event.type === "no_expedient");
     const expediente = doDia.filter((event) => event.type !== "no_expedient");
 
-    expediente.sort(
-      (a, b) => minutosDoHorario(a.startTime) - minutosDoHorario(b.startTime)
-    );
+    expediente.sort((a, b) => {
+      const inicioDiff =
+        minutosDoHorario(a.startTime) - minutosDoHorario(b.startTime);
+      if (inicioDiff !== 0) return inicioDiff;
+      // Hora inicial igual: horários finais maiores primeiro (ordem decrescente).
+      return minutosDoHorarioFim(b.endTime) - minutosDoHorarioFim(a.endTime);
+    });
 
     const items = expediente.map((event) => ({
       itemKey: buildQtsItemKey(
