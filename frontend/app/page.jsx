@@ -7,7 +7,7 @@ import axios from "axios";
 import { Lock, User, ShieldCheck, ShieldAlert, Loader2 } from "lucide-react";
 import { useToast } from "./hooks/useToast";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://qts-api.pamals.intraer";
 const TRUST_FLAG = "qts_trust_attempted";
 
 export default function LoginPage() {

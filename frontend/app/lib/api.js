@@ -1,5 +1,5 @@
 // Serviço para chamar a API
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://qts-api.pamals.intraer";
 
 export async function fetcher(url, options = {}) {
   const token = localStorage.getItem("token");

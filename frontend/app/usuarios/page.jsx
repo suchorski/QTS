@@ -38,7 +38,7 @@ import {
 import SignatureCropModal from "../components/SignatureCropModal";
 import SignatureCanvasPreview from "../components/SignatureCanvasPreview";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://qts-api.pamals.intraer";
 const LIMITE = 10;
 
 function formatarCpf(cpf) {

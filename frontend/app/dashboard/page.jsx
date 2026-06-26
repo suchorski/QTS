@@ -7,7 +7,7 @@ import { Check, ChevronDown, Link2 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import { getMilitaryOrganizations } from "../lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://qts-api.pamals.intraer";
 
 export default function DashboardPage() {
   const router = useRouter();

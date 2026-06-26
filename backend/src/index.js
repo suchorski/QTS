@@ -2561,7 +2561,7 @@ const QTS_STATUSES = ["minuta", "validado", "aprovado", "invalidado"];
 const QTS_ARCHIVE_STATUS = "aprovado";
 const QTS_ARCHIVE_RETENTION_DAYS = 90;
 const QTS_ARCHIVE_BATCH_SIZE = 100;
-const FRONTEND_BASE_URL = getEnv("FRONTEND_BASE_URL", "http://localhost:3000");
+const FRONTEND_BASE_URL = getEnv("FRONTEND_BASE_URL", "https://qts.pamals.intraer");
 
 const MESES_EXTENSO = [
   "JANEIRO",

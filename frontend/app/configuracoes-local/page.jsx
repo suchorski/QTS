@@ -14,7 +14,7 @@ import {
   uploadLocalOmImage,
 } from "../lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://qts-api.pamals.intraer";
 const MODAL_FADE_MS = 200;
 
 export default function ConfiguracoesLocalPage() {
