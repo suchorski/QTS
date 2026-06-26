@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   CalendarPlus,
   Plus,
+  Copy,
   X,
   Check,
   Clock,
@@ -410,6 +411,31 @@ export default function AgendaPage() {
     requestAnimationFrame(() => setModalVisivel(true));
   };
 
+  const abrirClone = (evento) => {
+    if (modalCloseTimerRef.current) {
+      clearTimeout(modalCloseTimerRef.current);
+      modalCloseTimerRef.current = null;
+    }
+    setForm({
+      type: evento.type === "no_expedient" ? "no_expedient" : "normal",
+      recurring: Boolean(evento.recurring),
+      eventDate: isoParaInputDate(evento.eventDate),
+      weekdays: Array.isArray(evento.weekdays) ? [...evento.weekdays] : [],
+      startTime: evento.startTime || "",
+      endTime: evento.endTime || "",
+      title: evento.title || "",
+      information: evento.information || "",
+      location: evento.location || "",
+      responsible: evento.responsible || "",
+      uniform: evento.uniform || "",
+    });
+    // Mantem como novo evento: nao define ID de edicao.
+    setEditandoId(null);
+    setErro("");
+    setModalAberto(true);
+    requestAnimationFrame(() => setModalVisivel(true));
+  };
+
   const fecharModal = () => {
     setModalVisivel(false);
     modalCloseTimerRef.current = setTimeout(() => {
@@ -655,6 +681,13 @@ export default function AgendaPage() {
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => abrirClone(evento)}
+            className="rounded-lg p-2 text-emerald-700 transition-colors hover:bg-emerald-50"
+            title="Clonar"
+          >
+            <Copy className="h-4 w-4" />
+          </button>
           <button
             onClick={() => abrirEdicao(evento)}
             className="rounded-lg p-2 text-blue-700 transition-colors hover:bg-blue-50"
