@@ -2860,13 +2860,20 @@ async function buildQtsSnapshot(omId, start, end) {
       return minutosDoHorarioFim(b.endTime) - minutosDoHorarioFim(a.endTime);
     });
 
-    const items = expediente.map((event) => ({
-      itemKey: buildQtsItemKey(
-        event.id,
-        `${day.getUTCFullYear()}-${pad2(day.getUTCMonth() + 1)}-${pad2(
-          day.getUTCDate()
-        )}`
-      ),
+    const dateStr = `${day.getUTCFullYear()}-${pad2(day.getUTCMonth() + 1)}-${pad2(
+      day.getUTCDate()
+    )}`;
+
+    // Eventos "sem expediente" viram linhas inteiras (full row) e individualmente
+    // excluíveis, para conviverem com eventos normais/recorrentes no mesmo dia.
+    const noExpedientItems = noExpedientEvents.map((event) => ({
+      itemKey: buildQtsItemKey(event.id, dateStr),
+      fullRow: true,
+      evento: event.title || "NÃO HAVERÁ EXPEDIENTE",
+    }));
+
+    const expedienteItems = expediente.map((event) => ({
+      itemKey: buildQtsItemKey(event.id, dateStr),
       hora: formatHora(event.startTime, event.endTime),
       evento: event.title || "-",
       participantes: normalizeOptionalField(event.information) || "-",
@@ -2875,15 +2882,15 @@ async function buildQtsSnapshot(omId, start, end) {
       uniforme: normalizeOptionalField(event.uniform) || "-",
     }));
 
+    const items = [...noExpedientItems, ...expedienteItems];
+
     days.push({
-      date: `${day.getUTCFullYear()}-${pad2(day.getUTCMonth() + 1)}-${pad2(
-        day.getUTCDate()
-      )}`,
+      date: dateStr,
       dayShort: DIAS_CURTO[weekday],
       dayNumber: pad2(day.getUTCDate()),
       weekday,
       noExpedient: items.length === 0,
-      noExpedientReason: noExpedientEvents[0]?.title || null,
+      noExpedientReason: null,
       items,
     });
   }

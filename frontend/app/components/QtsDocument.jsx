@@ -207,37 +207,61 @@ export default function QtsDocument({ data, onSolicitarExclusaoItem }) {
               return day.items.map((item, idx) => (
                 <tr key={`${day.date}-${idx}`} className={zebra}>
                   {idx === 0 && diaCell}
-                  <td className="border border-slate-400 px-2 py-1.5 text-center text-slate-700">
-                    {item.hora}
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1.5 text-slate-800">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="flex-1 text-center">{item.evento}</span>
-                      {editavel ? (
-                        <button
-                          type="button"
-                          onClick={() => onSolicitarExclusaoItem(day, item)}
-                          className="shrink-0 rounded-full p-1 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
-                          title="Excluir linha da prévia"
-                          aria-label="Excluir linha da prévia"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1.5 text-center text-slate-700">
-                    {item.participantes}
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1.5 text-center text-slate-700">
-                    {item.local}
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1.5 text-center text-slate-700">
-                    {item.responsavel}
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1.5 text-center font-medium text-slate-700">
-                    {item.uniforme}
-                  </td>
+                  {item.fullRow ? (
+                    <td
+                      colSpan={COLUNAS.length}
+                      className="border border-slate-400 px-3 py-2 text-center font-medium uppercase italic text-slate-600"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <span>{item.evento}</span>
+                        {editavel ? (
+                          <button
+                            type="button"
+                            onClick={() => onSolicitarExclusaoItem(day, item)}
+                            className="shrink-0 rounded-full p-1 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                            title="Excluir linha da prévia"
+                            aria-label="Excluir linha da prévia"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  ) : (
+                    <>
+                      <td className="border border-slate-400 px-2 py-1.5 text-center text-slate-700">
+                        {item.hora}
+                      </td>
+                      <td className="border border-slate-400 px-2 py-1.5 text-slate-800">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="flex-1 text-center">{item.evento}</span>
+                          {editavel ? (
+                            <button
+                              type="button"
+                              onClick={() => onSolicitarExclusaoItem(day, item)}
+                              className="shrink-0 rounded-full p-1 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                              title="Excluir linha da prévia"
+                              aria-label="Excluir linha da prévia"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="border border-slate-400 px-2 py-1.5 text-center text-slate-700">
+                        {item.participantes}
+                      </td>
+                      <td className="border border-slate-400 px-2 py-1.5 text-center text-slate-700">
+                        {item.local}
+                      </td>
+                      <td className="border border-slate-400 px-2 py-1.5 text-center text-slate-700">
+                        {item.responsavel}
+                      </td>
+                      <td className="border border-slate-400 px-2 py-1.5 text-center font-medium text-slate-700">
+                        {item.uniforme}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ));
             })}
